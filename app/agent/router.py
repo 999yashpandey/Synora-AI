@@ -5,7 +5,6 @@ from app.tools.windows_tools import close_application
 
 from app.tools.file_tools import (
     open_folder,
-    open_file,
     open_named_file,
     list_folder,
     SPECIAL_FOLDERS,
@@ -18,163 +17,360 @@ from app.tools.system_tools import (
 )
 
 
+# ============================================================
+# SPECIAL FOLDER NAMES
+# ============================================================
+
+SPECIAL_FOLDER_NAMES = {
+    "download": "downloads",
+    "downloads": "downloads",
+
+    "desktop": "desktop",
+
+    "picture": "pictures",
+    "pictures": "pictures",
+
+    "document": "documents",
+    "documents": "documents",
+}
+
+
+# ============================================================
+# APPLICATION ALIASES
+# ============================================================
+
+APPLICATION_ALIASES = {
+    "brave": "brave",
+    "brave browser": "brave",
+
+    "chrome": "chrome",
+    "google chrome": "chrome",
+    "google chrome browser": "chrome",
+
+    "edge": "edge",
+    "microsoft edge": "edge",
+    "edge browser": "edge",
+
+    "firefox": "firefox",
+    "mozilla firefox": "firefox",
+    "firefox browser": "firefox",
+
+    "calculator": "calculator",
+    "calc": "calculator",
+}
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _normalize_text(text: str) -> str:
+    """
+    Normalize text coming from both keyboard and Whisper.
+
+    Handles:
+    - capitalization
+    - punctuation
+    - extra spaces
+    """
+
+    text = str(text or "").lower().strip()
+
+    # Replace punctuation with spaces.
+    text = re.sub(
+        r"[^\w\s]",
+        " ",
+        text,
+    )
+
+    # Collapse multiple spaces.
+    text = re.sub(
+        r"\s+",
+        " ",
+        text,
+    )
+
+    return text.strip()
+
+
+def _clean_target(target: str) -> str:
+    """
+    Clean natural-language application/file targets.
+    """
+
+    target = _normalize_text(target)
+
+    # Remove common filler words.
+    target = re.sub(
+        r"\b(the|app|application|program|software)\b",
+        "",
+        target,
+        flags=re.IGNORECASE,
+    )
+
+    # "browser" is useful for voice commands such as:
+    # "Open Brave browser"
+    #
+    # It should not prevent application alias matching.
+    target = re.sub(
+        r"\bbrowser\b",
+        "",
+        target,
+        flags=re.IGNORECASE,
+    )
+
+    # Collapse spaces again after removing words.
+    target = re.sub(
+        r"\s+",
+        " ",
+        target,
+    )
+
+    return target.strip()
+
+
+def _normalize_application_name(target: str):
+    """
+    Convert common application aliases into the canonical
+    application name used by app_tools.py.
+    """
+
+    target = _normalize_text(target)
+
+    # Direct alias lookup.
+    if target in APPLICATION_ALIASES:
+
+        return APPLICATION_ALIASES[target]
+
+    # Handle natural voice variations.
+    #
+    # Examples:
+    # "brave browser" -> brave
+    # "open brave browser" is cleaned before this function.
+    #
+    # These checks also make the router more tolerant
+    # of Whisper's punctuation/casing.
+    if re.fullmatch(
+        r"(brave)(\s+browser)?",
+        target,
+    ):
+        return "brave"
+
+    if re.fullmatch(
+        r"(chrome|google chrome)(\s+browser)?",
+        target,
+    ):
+        return "chrome"
+
+    if re.fullmatch(
+        r"(edge|microsoft edge)(\s+browser)?",
+        target,
+    ):
+        return "edge"
+
+    if re.fullmatch(
+        r"(firefox|mozilla firefox)(\s+browser)?",
+        target,
+    ):
+        return "firefox"
+
+    if target in {
+        "calculator",
+        "calc",
+    }:
+
+        return "calculator"
+
+    return target
+
+
+# ============================================================
+# ROUTER
+# ============================================================
+
 def route_command(user_input: str):
 
-    text = user_input.lower().strip()
+    text = _normalize_text(user_input)
 
     if not text:
         return None
 
-    # ======================================================
-    # LIST FOLDER
-    # ======================================================
+    # ========================================================
+    # LIST / SHOW SPECIAL FOLDERS
+    # ========================================================
 
     list_match = re.search(
         r"\b(list|show|what.*inside|what.*in)\b.*\b"
-        r"(downloads?|desktop|pictures?)\b",
+        r"(downloads?|desktop|pictures?|documents?)\b",
         text,
     )
 
     if list_match:
 
         folder_match = re.search(
-            r"\b(downloads?|desktop|pictures?)\b",
+            r"\b(downloads?|desktop|pictures?|documents?)\b",
             text,
         )
 
         if folder_match:
 
-            folder = folder_match.group(1)
+            folder = SPECIAL_FOLDER_NAMES.get(
+                folder_match.group(1)
+            )
 
-            folder_map = {
-                "download": "downloads",
-                "downloads": "downloads",
-                "desktop": "desktop",
-                "picture": "pictures",
-                "pictures": "pictures",
-            }
-
-            folder = folder_map.get(folder)
-
-            if folder:
+            if folder and folder in SPECIAL_FOLDERS:
 
                 return list_folder(
                     str(SPECIAL_FOLDERS[folder])
                 )
 
-    # ======================================================
-    # OPEN SPECIAL FOLDER
-    # ======================================================
-
-    folder_match = re.search(
-        r"\b(open|show|go to|access)\b.*\b"
-        r"(downloads?|desktop|pictures?)\b",
-        text,
-    )
-
-    if folder_match:
-
-        folder = folder_match.group(2)
-
-        folder_map = {
-            "download": "downloads",
-            "downloads": "downloads",
-            "desktop": "desktop",
-            "picture": "pictures",
-            "pictures": "pictures",
-        }
-
-        folder = folder_map.get(folder)
-
-        if folder:
-
-            return open_folder(folder)
-
-    # ======================================================
-    # OPEN FILE
-    # ======================================================
+    # ========================================================
+    # OPEN / LAUNCH APPLICATION OR FILE
+    # ========================================================
 
     open_match = re.search(
-        r"\b(open|show|view)\b\s+(.+)",
+        r"^\s*(open|show|view|launch|start|run|go to)\s+(.+?)\s*$",
         text,
     )
 
     if open_match:
 
-        target = open_match.group(2).strip()
+        raw_target = open_match.group(2)
 
-        target = re.sub(
-            r"\b(the|file|photo|picture|image|document)\b",
-            "",
-            target,
-        ).strip()
+        target = _clean_target(
+            raw_target
+        )
 
-        folder_names = {
-            "downloads",
-            "download",
-            "desktop",
-            "pictures",
-            "picture",
-        }
+        if not target:
+            return None
 
-        if target not in folder_names:
+        # ----------------------------------------------------
+        # SPECIAL FOLDERS
+        # ----------------------------------------------------
 
-            file_result = open_named_file(target)
+        if target in SPECIAL_FOLDER_NAMES:
 
-            if file_result is not None:
+            folder = SPECIAL_FOLDER_NAMES[target]
 
-                return file_result
+            if folder in SPECIAL_FOLDERS:
 
-    # ======================================================
+                return open_folder(folder)
+
+        # ----------------------------------------------------
+        # APPLICATION ALIASES
+        #
+        # This is deliberately checked BEFORE file lookup.
+        #
+        # Therefore:
+        #
+        # "Open Brave"
+        # "Open Brave Browser"
+        # "Open Brave."
+        #
+        # all resolve to:
+        #
+        # open_application("brave")
+        # ----------------------------------------------------
+
+        normalized_application = (
+            _normalize_application_name(
+                target
+            )
+        )
+
+        if normalized_application in {
+            "brave",
+            "chrome",
+            "edge",
+            "firefox",
+            "calculator",
+        }:
+
+            return open_application(
+                normalized_application
+            )
+
+        # ----------------------------------------------------
+        # EXACT APPLICATION NAMES
+        # ----------------------------------------------------
+
+        if target in {
+            "brave",
+            "brave browser",
+
+            "chrome",
+            "google chrome",
+            "google chrome browser",
+
+            "edge",
+            "microsoft edge",
+            "edge browser",
+
+            "firefox",
+            "mozilla firefox",
+            "firefox browser",
+
+            "calculator",
+            "calc",
+
+            "notepad",
+            "settings",
+            "camera",
+            "photos",
+        }:
+
+            return open_application(
+                target
+            )
+
+        # ----------------------------------------------------
+        # FILE LOOKUP
+        # ----------------------------------------------------
+
+        file_result = open_named_file(
+            target
+        )
+
+        if file_result is not None:
+
+            return file_result
+
+        # ----------------------------------------------------
+        # GENERIC APPLICATION LOOKUP
+        # ----------------------------------------------------
+
+        return open_application(
+            target
+        )
+
+    # ========================================================
     # CLOSE APPLICATION
-    # ======================================================
+    # ========================================================
 
     close_match = re.search(
-        r"\b(close|quit|exit|stop|terminate)\b\s+(.+)",
+        r"^\s*(close|quit|terminate|stop)\s+(.+?)\s*$",
         text,
     )
 
     if close_match:
 
-        application = close_match.group(2).strip()
+        application = _clean_target(
+            close_match.group(2)
+        )
 
-        application = re.sub(
-            r"\b(the|app|application|program|software)\b",
-            "",
-            application,
-        ).strip()
+        application = _normalize_application_name(
+            application
+        )
 
         if application:
 
-            return close_application(application)
+            return close_application(
+                application
+            )
 
-    # ======================================================
-    # OPEN APPLICATION
-    # ======================================================
-
-    if open_match:
-
-        application = open_match.group(2).strip()
-
-        application = re.sub(
-            r"\b(the|app|application|program|software)\b",
-            "",
-            application,
-        ).strip()
-
-        if application not in {
-            "downloads",
-            "download",
-            "desktop",
-            "pictures",
-            "picture",
-        }:
-
-            return open_application(application)
-
-    # ======================================================
+    # ========================================================
     # TIME
-    # ======================================================
+    # ========================================================
 
     if re.search(
         r"\b("
@@ -189,9 +385,9 @@ def route_command(user_input: str):
 
         return get_time()
 
-    # ======================================================
+    # ========================================================
     # DATE
-    # ======================================================
+    # ========================================================
 
     if re.search(
         r"\b("
@@ -208,9 +404,9 @@ def route_command(user_input: str):
 
         return get_date()
 
-    # ======================================================
+    # ========================================================
     # BATTERY
-    # ======================================================
+    # ========================================================
 
     if re.search(
         r"\b("
@@ -224,9 +420,5 @@ def route_command(user_input: str):
     ):
 
         return get_battery()
-
-    # ======================================================
-    # NORMAL AI REQUEST
-    # ======================================================
 
     return None

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synora AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="app-shell">
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark">S</div>
+            <div>
+                <div class="brand-name">SYNORA</div>
+                <div class="brand-sub">PERSONAL AI SYSTEM</div>
+            </div>
+        </div>
+
+        <div class="top-status">
+            <span class="status-dot"></span>
+            <span>ONLINE</span>
+            <span class="separator">•</span>
+            <span>LOCAL</span>
+        </div>
+    </header>
+
+    <main class="main-grid">
+        <aside class="side-panel left-panel">
+            <div class="panel-title">SYSTEM</div>
+            <div class="metric"><span>MODEL</span><strong>QWEN 2.5 3B</strong></div>
+            <div class="metric"><span>MEMORY</span><strong id="memoryState">ACTIVE</strong></div>
+            <div class="metric"><span>WEB</span><strong id="webState">READY</strong></div>
+            <div class="metric"><span>VOICE</span><strong id="voiceState">READY</strong></div>
+            <div class="metric"><span>SECURITY</span><strong>LOCAL</strong></div>
+
+            <div class="side-section">
+                <div class="panel-title">COMMANDS</div>
+                <button class="quick" data-command="What time is it?">TIME</button>
+                <button class="quick" data-command="Take a screenshot">SCREENSHOT</button>
+                <button class="quick" data-command="Play music">MUSIC</button>
+                <button class="quick" data-command="Tell me a joke">JOKE</button>
+            </div>
+        </aside>
+
+        <section class="assistant-area">
+            <div class="orb-wrap" id="orbWrap">
+                <div class="ring ring-one"></div>
+                <div class="ring ring-two"></div>
+                <div class="ring ring-three"></div>
+                <div class="orb">
+                    <span>S</span>
+                </div>
+                <div class="wave">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                    <i></i><i></i><i></i><i></i><i></i>
+                </div>
+            </div>
+
+            <div class="state" id="state">READY</div>
+
+            <div class="transcript" id="transcript">
+                How can I help you?
+            </div>
+
+            <div class="response" id="response">
+                Synora is ready for text or voice commands.
+            </div>
+
+            <div class="input-zone">
+                <input id="messageInput" type="text"
+                       placeholder="Type a command or question..."
+                       autocomplete="off">
+                <button id="sendButton" class="send-button">SEND</button>
+            </div>
+
+            <div class="voice-zone">
+                <button id="micButton" class="mic-button" title="Voice command">
+                    <span class="mic-icon">●</span>
+                </button>
+                <div class="voice-hint">CLICK TO SPEAK</div>
+            </div>
+        </section>
+
+        <aside class="side-panel right-panel">
+            <div class="panel-title">CAPABILITIES</div>
+            <div class="cap">AI CONVERSATION <span>●</span></div>
+            <div class="cap">APP CONTROL <span>●</span></div>
+            <div class="cap">WEB RESEARCH <span>●</span></div>
+            <div class="cap">MEMORY <span>●</span></div>
+            <div class="cap">FILES & DOCS <span>●</span></div>
+            <div class="cap">NOTES <span>●</span></div>
+            <div class="cap">SCREENSHOTS <span>●</span></div>
+            <div class="cap">MUSIC <span>●</span></div>
+
+            <div class="side-section">
+                <div class="panel-title">TRY SAYING</div>
+                <button class="example" data-command="Open Brave">"Open Brave"</button>
+                <button class="example" data-command="Search the web for latest AI news">"Latest AI news"</button>
+                <button class="example" data-command="Take a note My next project is Synora">"Take a note..."</button>
+                <button class="example" data-command="Tell me about Alan Turing">"Tell me about..."</button>
+            </div>
+        </aside>
+    </main>
+
+    <footer class="footer">
+        <span>WHISPER BASE</span>
+        <span>QWEN 2.5 3B</span>
+        <span>SAPI5 TTS</span>
+        <span>WEB READY</span>
+        <span>PRIVATE BY DEFAULT</span>
+    </footer>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -24,8 +24,8 @@ class SynoraLLM:
             stream=False,
             keep_alive="10m",
             options={
-                "num_ctx": 4096,
-                "num_predict": 256,
+                "num_ctx": 8192,
+                "num_predict": 1800,
                 "temperature": 0.4,
                 "top_p": 0.9
             }
